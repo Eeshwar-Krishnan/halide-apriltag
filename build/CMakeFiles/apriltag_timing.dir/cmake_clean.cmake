@@ -67,6 +67,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/apriltag_timing.dir/apriltag/tagStandard52h13.c.o.d"
   "CMakeFiles/apriltag_timing.dir/apriltag_timing.cpp.o"
   "CMakeFiles/apriltag_timing.dir/apriltag_timing.cpp.o.d"
+  "CMakeFiles/apriltag_timing.dir/halide_decode.cpp.o"
+  "CMakeFiles/apriltag_timing.dir/halide_decode.cpp.o.d"
   "CMakeFiles/apriltag_timing.dir/halide_gradient.cpp.o"
   "CMakeFiles/apriltag_timing.dir/halide_gradient.cpp.o.d"
   "CMakeFiles/apriltag_timing.dir/halide_threshold.cpp.o"

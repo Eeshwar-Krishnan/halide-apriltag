@@ -945,6 +945,30 @@ apriltag_timing.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/apriltag_timing.dir/build.make CMakeFiles/apriltag_timing.dir/apriltag_timing.cpp.s
 .PHONY : apriltag_timing.cpp.s
 
+halide_decode.o: halide_decode.cpp.o
+.PHONY : halide_decode.o
+
+# target to build an object file
+halide_decode.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/apriltag_timing.dir/build.make CMakeFiles/apriltag_timing.dir/halide_decode.cpp.o
+.PHONY : halide_decode.cpp.o
+
+halide_decode.i: halide_decode.cpp.i
+.PHONY : halide_decode.i
+
+# target to preprocess a source file
+halide_decode.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/apriltag_timing.dir/build.make CMakeFiles/apriltag_timing.dir/halide_decode.cpp.i
+.PHONY : halide_decode.cpp.i
+
+halide_decode.s: halide_decode.cpp.s
+.PHONY : halide_decode.s
+
+# target to generate assembly for a file
+halide_decode.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/apriltag_timing.dir/build.make CMakeFiles/apriltag_timing.dir/halide_decode.cpp.s
+.PHONY : halide_decode.cpp.s
+
 halide_gradient.o: halide_gradient.cpp.o
 .PHONY : halide_gradient.o
 
@@ -1104,6 +1128,9 @@ help:
 	@echo "... apriltag_timing.o"
 	@echo "... apriltag_timing.i"
 	@echo "... apriltag_timing.s"
+	@echo "... halide_decode.o"
+	@echo "... halide_decode.i"
+	@echo "... halide_decode.s"
 	@echo "... halide_gradient.o"
 	@echo "... halide_gradient.i"
 	@echo "... halide_gradient.s"
