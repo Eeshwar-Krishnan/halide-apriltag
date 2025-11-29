@@ -101,7 +101,9 @@ private:
         output(x) = Halide::cast<uint8_t>(val);
 
         // Schedule
-        output.compute_root().vectorize(x, 8);
+        // Vectorize 32 to use wider SIMD if available.
+        // Since this is 1D and likely small, parallelization might add overhead.
+        output.compute_root().vectorize(x, 32);
 
         pipeline_ = std::make_unique<Halide::Pipeline>(output);
         Halide::Target target = Halide::get_host_target();
