@@ -1,0 +1,3 @@
+/Users/eeshwarkrishnan/Documents/Projects/halide-apriltag/cmake-build/CMakeFiles/apriltag_timing.dir
+/Users/eeshwarkrishnan/Documents/Projects/halide-apriltag/cmake-build/CMakeFiles/edit_cache.dir
+/Users/eeshwarkrishnan/Documents/Projects/halide-apriltag/cmake-build/CMakeFiles/rebuild_cache.dir

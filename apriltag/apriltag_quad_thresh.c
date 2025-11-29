@@ -46,6 +46,10 @@ either expressed or implied, of the Regents of The University of Michigan.
 
 #ifdef APRILTAG_HAVE_HALIDE
 image_u8_t *halide_threshold(apriltag_detector_t *td, image_u8_t *im);
+void halide_compute_gradients(uint8_t *input_buf, int w, int h, int s,
+                              int16_t *gx_buf, int gx_s,
+                              int16_t *gy_buf, int gy_s,
+                              float *mag_buf, int mag_s);
 #endif
 
 #ifdef _WIN32
@@ -93,6 +97,9 @@ struct quad_task
     int w, h;
 
     image_u8_t *im;
+    int16_t *gx, *gy;
+    float *mag;
+    int s_grad;
     int tag_width;
     bool normal_border;
     bool reversed_border;
@@ -622,7 +629,7 @@ int quad_segment_agg(zarray_t *cluster, struct line_fit_pt *lfps, int indices[4]
  * Compute statistics that allow line fit queries to be
  * efficiently computed for any contiguous range of indices.
  */
-struct line_fit_pt* compute_lfps(int sz, zarray_t* cluster, image_u8_t* im) {
+struct line_fit_pt* compute_lfps(int sz, zarray_t* cluster, image_u8_t* im, int16_t *gx, int16_t *gy, float *mag, int s_grad) {
     struct line_fit_pt *lfps = calloc(sz, sizeof(struct line_fit_pt));
     double sum_Mx = 0, sum_My = 0, sum_Mxx = 0, sum_Myy = 0, sum_Mxy = 0, sum_W = 0;
 
@@ -638,14 +645,19 @@ struct line_fit_pt* compute_lfps(int sz, zarray_t* cluster, image_u8_t* im) {
         double W = 1;
 
         if (ix > 0 && ix+1 < im->width && iy > 0 && iy+1 < im->height) {
-            int grad_x = im->buf[iy * im->stride + ix + 1] -
-                im->buf[iy * im->stride + ix - 1];
+            if (gx) {
+                int idx = iy * s_grad + ix;
+                W = mag[idx];
+            } else {
+                int grad_x = im->buf[iy * im->stride + ix + 1] -
+                    im->buf[iy * im->stride + ix - 1];
 
-            int grad_y = im->buf[(iy+1) * im->stride + ix] -
-                im->buf[(iy-1) * im->stride + ix];
+                int grad_y = im->buf[(iy+1) * im->stride + ix] -
+                    im->buf[(iy-1) * im->stride + ix];
 
-            // XXX Tunable. How to shape the gradient magnitude?
-            W = sqrt(grad_x*grad_x + grad_y*grad_y) + 1;
+                // XXX Tunable. How to shape the gradient magnitude?
+                W = sqrt(grad_x*grad_x + grad_y*grad_y) + 1;
+            }
         }
 
         double fx = x, fy = y;
@@ -775,6 +787,7 @@ static inline void ptsort(struct pt *pts, int sz)
 int fit_quad(
         apriltag_detector_t *td,
         image_u8_t *im,
+        int16_t *gx, int16_t *gy, float *mag, int s_grad,
         zarray_t *cluster,
         struct quad *quad,
         int tag_width,
@@ -870,7 +883,7 @@ int fit_quad(
         ptsort((struct pt*) cluster->data, zarray_size(cluster));
     }
 
-    struct line_fit_pt *lfps = compute_lfps(sz, cluster, im);
+    struct line_fit_pt *lfps = compute_lfps(sz, cluster, im, gx, gy, mag, s_grad);
 
     int indices[4];
     if (1) {
@@ -1093,7 +1106,7 @@ static void do_quad_task(void *p)
         struct quad quad;
         memset(&quad, 0, sizeof(struct quad));
 
-        if (fit_quad(td, task->im, *cluster, &quad, task->tag_width, task->normal_border, task->reversed_border)) {
+        if (fit_quad(td, task->im, task->gx, task->gy, task->mag, task->s_grad, *cluster, &quad, task->tag_width, task->normal_border, task->reversed_border)) {
             pthread_mutex_lock(&td->mutex);
             zarray_add(quads, &quad);
             pthread_mutex_unlock(&td->mutex);
@@ -1820,7 +1833,7 @@ zarray_t* gradient_clusters(apriltag_detector_t *td, image_u8_t* threshim, int w
     return clusters;
 }
 
-zarray_t* fit_quads(apriltag_detector_t *td, int w, int h, zarray_t* clusters, image_u8_t* im) {
+zarray_t* fit_quads(apriltag_detector_t *td, int w, int h, zarray_t* clusters, image_u8_t* im, int16_t *gx, int16_t *gy, float *mag, int s_grad) {
     zarray_t *quads = zarray_create(sizeof(struct quad));
 
     bool normal_border = false;
@@ -1855,6 +1868,10 @@ zarray_t* fit_quads(apriltag_detector_t *td, int w, int h, zarray_t* clusters, i
         tasks[ntasks].quads = quads;
         tasks[ntasks].clusters = clusters;
         tasks[ntasks].im = im;
+        tasks[ntasks].gx = gx;
+        tasks[ntasks].gy = gy;
+        tasks[ntasks].mag = mag;
+        tasks[ntasks].s_grad = s_grad;
         tasks[ntasks].tag_width = min_tag_width;
         tasks[ntasks].normal_border = normal_border;
         tasks[ntasks].reversed_border = reversed_border;
@@ -1931,6 +1948,28 @@ zarray_t *apriltag_quad_thresh(apriltag_detector_t *td, image_u8_t *im)
 
     zarray_t* clusters = gradient_clusters(td, threshim, w, h, ts, uf);
 
+    int16_t *gx = NULL, *gy = NULL;
+    float *mag = NULL;
+    int s_grad = 0;
+
+#ifdef APRILTAG_HAVE_HALIDE
+    if (td->use_halide) {
+        s_grad = w; // stride in elements
+        // Allocate buffers
+        // gx = malloc(w * h * sizeof(int16_t));
+        // gy = malloc(w * h * sizeof(int16_t));
+        // mag = malloc(w * h * sizeof(float));
+        
+        // Compute gradients
+        // halide_compute_gradients(im->buf, w, h, im->stride,
+        //                          gx, s_grad * sizeof(int16_t),
+        //                          gy, s_grad * sizeof(int16_t),
+        //                          mag, s_grad * sizeof(float));
+        
+        // timeprofile_stamp(td->tp, "halide_gradient");
+    }
+#endif
+
     if (td->debug) {
         image_u8x3_t *d = image_u8x3_create(w, h);
 
@@ -1970,7 +2009,13 @@ zarray_t *apriltag_quad_thresh(apriltag_detector_t *td, image_u8_t *im)
     ////////////////////////////////////////////////////////
     // step 3. process each connected component.
 
-    zarray_t* quads = fit_quads(td, w, h, clusters, im);
+    zarray_t *quads = fit_quads(td, w, h, clusters, im, gx, gy, mag, s_grad);
+
+    if (gx) {
+        free(gx);
+        free(gy);
+        free(mag);
+    }
 
     if (td->debug) {
         FILE *f = fopen("debug_lines.ps", "w");

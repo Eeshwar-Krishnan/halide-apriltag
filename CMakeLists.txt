@@ -90,7 +90,7 @@ if (USE_HALIDE)
         find_package(Halide CONFIG)
 
         if (Halide_FOUND)
-            target_sources(apriltag_timing PRIVATE halide_threshold.cpp)
+            target_sources(apriltag_timing PRIVATE halide_threshold.cpp halide_gradient.cpp)
             target_link_libraries(apriltag_timing PRIVATE Halide::Halide)
             target_compile_definitions(apriltag_timing PRIVATE APRILTAG_HAVE_HALIDE=1)
             message(STATUS "Halide found - hybrid detector enabled")
