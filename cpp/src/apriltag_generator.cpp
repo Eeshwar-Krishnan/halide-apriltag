@@ -712,7 +712,7 @@ int main(int argc, char **argv) {
         // Configure GPU target
         Target gpu_target = target;
         gpu_target.set_feature(Target::Metal);
-        gpu_target.set_feature(Target::Profile);
+        //gpu_target.set_feature(Target::Profile);
 
         std::cout << "Compiling adaptive threshold pipeline..." << std::endl;
         stage_start = Clock::now();

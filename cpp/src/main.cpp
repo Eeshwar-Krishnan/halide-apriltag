@@ -610,17 +610,32 @@ int main(int argc, char** argv) {
         // =================================================================
         Buffer<uint8_t> binary(input.width(), input.height());
         
+        // Cold call - includes Metal shader JIT compilation + context setup
         stage_start = Clock::now();
         int result = atag_edge_detect(input, binary);
         stage_end = Clock::now();
-        timings.emplace_back("grayscale+threshold (GPU)", to_ms(stage_end - stage_start));
+        double cold_time = to_ms(stage_end - stage_start);
+        timings.emplace_back("GPU cold (incl. shader compile)", cold_time);
         
         if (result != 0) {
             throw std::runtime_error("Halide pipeline failed: " + std::to_string(result));
         }
         
-        std::cout << "Stage 'grayscale+threshold (GPU)' completed in "
-                  << timings.back().second << " ms" << std::endl;
+        // Warm call - shaders cached, context ready
+        stage_start = Clock::now();
+        result = atag_edge_detect(input, binary);
+        stage_end = Clock::now();
+        double warm_time = to_ms(stage_end - stage_start);
+        timings.emplace_back("GPU warm (cached)", warm_time);
+        
+        if (result != 0) {
+            throw std::runtime_error("Halide pipeline failed: " + std::to_string(result));
+        }
+        
+        std::cout << "GPU Pipeline Timing:" << std::endl;
+        std::cout << "  Cold (first call):  " << std::fixed << std::setprecision(2) << cold_time << " ms" << std::endl;
+        std::cout << "  Warm (second call): " << std::fixed << std::setprecision(2) << warm_time << " ms" << std::endl;
+        std::cout << "  Speedup:            " << std::fixed << std::setprecision(1) << (cold_time / warm_time) << "x" << std::endl;
         
         // Copy to host
         stage_start = Clock::now();
