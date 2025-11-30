@@ -1,1 +1,1 @@
-/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/apriltag_generator.dir/src/apriltag_generator.cpp.o -o apriltag_generator  -Wl,-rpath,/opt/homebrew/lib /opt/homebrew/lib/libHalide.21.0.0.dylib
+/usr/bin/c++ -O3 -DNDEBUG -march=native -mtune=native -ffast-math -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/apriltag_generator.dir/src/apriltag_generator.cpp.o -o apriltag_generator  -Wl,-rpath,/opt/homebrew/lib /opt/homebrew/lib/libHalide.21.0.0.dylib

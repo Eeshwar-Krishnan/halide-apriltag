@@ -6,7 +6,7 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -I/Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/build -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks -isystem /opt/homebrew/include -isystem /opt/homebrew/share/tools
 
-CXX_FLAGSarm64 = -std=gnu++17 -arch arm64
+CXX_FLAGSarm64 = -O3 -DNDEBUG -march=native -mtune=native -ffast-math -std=gnu++17 -arch arm64
 
-CXX_FLAGS = -std=gnu++17 -arch arm64
+CXX_FLAGS = -O3 -DNDEBUG -march=native -mtune=native -ffast-math -std=gnu++17 -arch arm64
 

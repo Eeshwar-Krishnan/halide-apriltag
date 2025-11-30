@@ -5,6 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Aggressive optimization for Release builds
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=native -mtune=native -ffast-math")
+
+# Make sure we're in Release mode
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 # Halide provides a CMake config package. Set Halide_DIR if CMake cannot find it automatically.
 find_package(Halide REQUIRED)
 
@@ -61,6 +69,3 @@ target_link_options(apriltag_runner PRIVATE
     "-Wl,-dead_strip"
 )
 
-if (NOT DEFINED CMAKE_BUILD_TYPE)
-    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY VALUE "Release")
-endif()

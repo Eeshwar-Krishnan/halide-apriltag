@@ -6,7 +6,7 @@ CXX_DEFINES = -DHALIDE_ENABLE_RTTI -DHALIDE_VERSION_MAJOR=21 -DHALIDE_VERSION_MI
 
 CXX_INCLUDES = -isystem /opt/homebrew/include
 
-CXX_FLAGSarm64 = -std=gnu++17 -arch arm64
+CXX_FLAGSarm64 = -O3 -DNDEBUG -march=native -mtune=native -ffast-math -std=gnu++17 -arch arm64
 
-CXX_FLAGS = -std=gnu++17 -arch arm64
+CXX_FLAGS = -O3 -DNDEBUG -march=native -mtune=native -ffast-math -std=gnu++17 -arch arm64
 

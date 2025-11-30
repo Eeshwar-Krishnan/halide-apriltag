@@ -1,13 +1,13 @@
 [
 {
   "directory": "/Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/build",
-  "command": "/usr/bin/c++ -DHALIDE_ENABLE_RTTI -DHALIDE_VERSION_MAJOR=21 -DHALIDE_VERSION_MINOR=0 -DHALIDE_VERSION_PATCH=0 -DHALIDE_WITH_EXCEPTIONS -isystem /opt/homebrew/include -std=gnu++17 -arch arm64 -o CMakeFiles/apriltag_generator.dir/src/apriltag_generator.cpp.o -c /Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/src/apriltag_generator.cpp",
+  "command": "/usr/bin/c++ -DHALIDE_ENABLE_RTTI -DHALIDE_VERSION_MAJOR=21 -DHALIDE_VERSION_MINOR=0 -DHALIDE_VERSION_PATCH=0 -DHALIDE_WITH_EXCEPTIONS -isystem /opt/homebrew/include -O3 -DNDEBUG -march=native -mtune=native -ffast-math -std=gnu++17 -arch arm64 -o CMakeFiles/apriltag_generator.dir/src/apriltag_generator.cpp.o -c /Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/src/apriltag_generator.cpp",
   "file": "/Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/src/apriltag_generator.cpp",
   "output": "CMakeFiles/apriltag_generator.dir/src/apriltag_generator.cpp.o"
 },
 {
   "directory": "/Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/build",
-  "command": "/usr/bin/c++  -I/Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/build -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks -isystem /opt/homebrew/include -isystem /opt/homebrew/share/tools -std=gnu++17 -arch arm64 -o CMakeFiles/apriltag_runner.dir/src/main.cpp.o -c /Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/src/main.cpp",
+  "command": "/usr/bin/c++  -I/Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/build -F/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks -isystem /opt/homebrew/include -isystem /opt/homebrew/share/tools -O3 -DNDEBUG -march=native -mtune=native -ffast-math -std=gnu++17 -arch arm64 -o CMakeFiles/apriltag_runner.dir/src/main.cpp.o -c /Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/src/main.cpp",
   "file": "/Users/eeshwarkrishnan/Documents/Projects/apriltags-halide/cpp/src/main.cpp",
   "output": "CMakeFiles/apriltag_runner.dir/src/main.cpp.o"
 }

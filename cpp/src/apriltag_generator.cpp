@@ -590,18 +590,30 @@ Func build_full_pipeline(ImageParam input) {
 constexpr int TILE_SIZE = 4;  // Local neighborhood for adaptive threshold
 constexpr int MIN_CONTRAST = 30;  // Minimum contrast to consider an edge (fixed, robust)
 
-Func build_adaptive_threshold_pipeline(ImageParam input) {
-    Var x("x"), y("y");
+// Input is now RGB uint8 (3-channel), grayscale conversion is done on GPU
+Func build_adaptive_threshold_pipeline(ImageParam input_rgb) {
+    Var x("x"), y("y"), c("c");
     Var xo("xo"), yo("yo"), xi("xi"), yi("yi");
 
-    Expr width = input.width();
-    Expr height = input.height();
+    Expr width = input_rgb.width();
+    Expr height = input_rgb.height();
     Expr max_x = width - 1;
     Expr max_y = height - 1;
 
-    // Step 1: Clamp input
+    // Step 0: Convert RGB to grayscale on GPU
+    // Standard luminance formula: Y = 0.299*R + 0.587*G + 0.114*B
+    Func gray("gray");
+    Expr red = cast<float>(input_rgb(clamp(x, 0, max_x), clamp(y, 0, max_y), 0));
+    Expr green = cast<float>(input_rgb(clamp(x, 0, max_x), clamp(y, 0, max_y), 1));
+    Expr blue = cast<float>(input_rgb(clamp(x, 0, max_x), clamp(y, 0, max_y), 2));
+    gray(x, y) = 0.299f * red + 0.587f * green + 0.114f * blue;
+    
+    // Schedule grayscale conversion on GPU
+    gray.compute_root().gpu_tile(x, y, xo, yo, xi, yi, 16, 16);
+
+    // Step 1: Clamp input (now using grayscale)
     Func clamped("clamped");
-    clamped(x, y) = input(clamp(x, 0, max_x), clamp(y, 0, max_y));
+    clamped(x, y) = gray(clamp(x, 0, max_x), clamp(y, 0, max_y));
 
     // Step 2: Compute local min/max in TILE_SIZE x TILE_SIZE neighborhoods
     // This is the key to adaptive thresholding - no manual tuning needed
@@ -686,15 +698,16 @@ int main(int argc, char **argv) {
 
         // =========================================================================
         // AprilTag-style Adaptive Thresholding Pipeline (no tuning required)
+        // Accepts RGB uint8 input, performs grayscale conversion on GPU
         // =========================================================================
         auto stage_start = Clock::now();
-        ImageParam input_gray(Float(32), 2, "input_gray");
+        ImageParam input_rgb(UInt(8), 3, "input_rgb");  // RGB input, grayscale done on GPU
         
-        Func edge_detect = build_adaptive_threshold_pipeline(input_gray);
+        Func edge_detect = build_adaptive_threshold_pipeline(input_rgb);
         auto stage_end = Clock::now();
         timings.emplace_back("build_adaptive_threshold_pipeline", to_ms(stage_end - stage_start));
         
-        std::vector<Argument> edge_detect_args = {input_gray};
+        std::vector<Argument> edge_detect_args = {input_rgb};
 
         // Configure GPU target
         Target gpu_target = target;

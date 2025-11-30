@@ -345,137 +345,133 @@ std::vector<Quad> find_quads_from_binary(const Buffer<uint8_t>& binary, int min_
 }
 
 // =============================================================================
-// FAST Quad Detection (Decimation + Raw Pointers)
+// FAST Quad Detection (Decimation + Raw Pointers + Flattened Union-Find)
 // =============================================================================
 
-// Optimized Union-Find with path compression only (rank is overkill for image grids)
-struct FastUnionFind {
-    std::vector<int> parent;
-    FastUnionFind(int n) : parent(n) {
-        std::iota(parent.begin(), parent.end(), 0);
+struct FastUF {
+    int* parent;
+    int n;
+    
+    FastUF(int size) : n(size) {
+        parent = new int[size];
+        for (int i = 0; i < size; i++) parent[i] = i;
     }
-    int find(int x) {
+    ~FastUF() { delete[] parent; }
+    
+    inline int find(int x) {
         int root = x;
         while (root != parent[root]) root = parent[root];
-        // Path compression
-        int curr = x;
-        while (curr != root) {
-            int next = parent[curr];
-            parent[curr] = root;
-            curr = next;
-        }
+        while (x != root) { int next = parent[x]; parent[x] = root; x = next; }
         return root;
     }
-    void unite(int x, int y) {
-        int px = find(x);
-        int py = find(y);
-        parent[py] = px; // Simple link, fast enough for grid
+    
+    inline void unite(int x, int y) {
+        int rx = find(x), ry = find(y);
+        if (rx != ry) parent[ry] = rx;
+    }
+    
+    void flatten() {
+        for (int i = 0; i < n; i++) {
+            parent[i] = find(i);
+        }
     }
 };
 
 std::vector<Quad> find_quads_fast(const Buffer<uint8_t>& binary, int min_area, int max_area, int decimation = 1) {
-    int w = binary.width();
-    int h = binary.height();
-    int s_w = w / decimation;
-    int s_h = h / decimation;
+    const int w = binary.width();
+    const int h = binary.height();
+    const int s_w = w / decimation;
+    const int s_h = h / decimation;
     
-    const uint8_t* ptr = binary.data();
-    int stride_row = binary.stride(1);
+    const uint8_t* __restrict__ ptr = binary.data();
+    const int stride = binary.stride(1);
 
-    // 1. Union Find on Decimated Grid
-    FastUnionFind uf(s_w * s_h);
+    // Pass 1: Union-Find on decimated grid
+    FastUF uf(s_w * s_h);
     
     for (int sy = 0; sy < s_h; sy++) {
-        int y = sy * decimation;
-        const uint8_t* row_ptr = ptr + y * stride_row;
+        const int y = sy * decimation;
+        const uint8_t* row = ptr + y * stride;
         
         for (int sx = 0; sx < s_w; sx++) {
-            int x = sx * decimation;
+            const int x = sx * decimation;
+            if (row[x] == 0) continue;
             
-            // FIX: Skip ZERO pixels (background), process NON-ZERO (tag)
-            if (row_ptr[x] == 0) continue; 
-
-            int idx = sy * s_w + sx;
-
-            // Connect Right (if neighbor is also TAG)
-            if (sx + 1 < s_w) {
-                if (row_ptr[x + decimation] != 0) {
-                    uf.unite(idx, idx + 1);
-                }
+            const int idx = sy * s_w + sx;
+            
+            // Connect right
+            if (sx + 1 < s_w && row[x + decimation] != 0) {
+                uf.unite(idx, idx + 1);
             }
-            // Connect Down (if neighbor is also TAG)
-            if (sy + 1 < s_h) {
-                const uint8_t* next_row_ptr = ptr + (y + decimation) * stride_row;
-                if (next_row_ptr[x] != 0) {
-                    uf.unite(idx, idx + s_w);
-                }
+            // Connect down
+            if (sy + 1 < s_h && ptr[(y + decimation) * stride + x] != 0) {
+                uf.unite(idx, idx + s_w);
             }
         }
     }
+    
+    // KEY OPTIMIZATION: Flatten all parents for O(1) lookup in pass 2
+    uf.flatten();
 
-    // 2. Cluster Aggregation
-    std::vector<std::vector<Point2D>> clusters(s_w * s_h); 
+    // Pass 2: Collect boundary points + count area
+    // Use vectors indexed by root (sparse, but fast)
+    std::vector<std::vector<Point2D>> clusters(s_w * s_h);
     std::vector<int> area_counts(s_w * s_h, 0);
     std::vector<int> active_roots;
+    active_roots.reserve(256);
 
-    // Iterate with 1-pixel margin to safely check neighbors
     for (int sy = 1; sy < s_h - 1; sy++) {
-        int y = sy * decimation;
-        const uint8_t* row = ptr + y * stride_row;
-        const uint8_t* row_up = ptr + (y - decimation) * stride_row;
-        const uint8_t* row_down = ptr + (y + decimation) * stride_row;
+        const int y = sy * decimation;
+        const uint8_t* row = ptr + y * stride;
+        const uint8_t* row_up = ptr + (y - decimation) * stride;
+        const uint8_t* row_down = ptr + (y + decimation) * stride;
 
         for (int sx = 1; sx < s_w - 1; sx++) {
-            int x = sx * decimation;
-            
-            // FIX: Skip background
+            const int x = sx * decimation;
             if (row[x] == 0) continue;
 
-            int idx = sy * s_w + sx;
-            int root = uf.find(idx);
+            const int root = uf.parent[sy * s_w + sx];  // O(1) - already flattened!
             
+            if (area_counts[root] == 0) {
+                active_roots.push_back(root);
+            }
             area_counts[root]++;
 
-            // Boundary Check: Is any neighbor BACKGROUND (0)?
-            bool is_boundary = (row[x - decimation] == 0) || // Left
-                               (row[x + decimation] == 0) || // Right
-                               (row_up[x] == 0) ||           // Up
-                               (row_down[x] == 0);           // Down
-
-            if (is_boundary) {
+            // Boundary check
+            if ((row[x - decimation] == 0) | (row[x + decimation] == 0) |
+                (row_up[x] == 0) | (row_down[x] == 0)) {
                 clusters[root].emplace_back((float)x, (float)y);
-                if (area_counts[root] == 1) active_roots.push_back(root);
             }
         }
     }
 
-    // 3. Fit Quads
+    // Pass 3: Fit quads
+    const int scaled_min_area = min_area / (decimation * decimation);
+    const int scaled_max_area = max_area / (decimation * decimation);
+    
     std::vector<Quad> quads;
-    int scaled_min_area = min_area / (decimation * decimation);
-    int scaled_max_area = max_area / (decimation * decimation);
+    quads.reserve(active_roots.size());
 
     for (int root : active_roots) {
-        int area = area_counts[root];
+        const int area = area_counts[root];
         if (area < scaled_min_area || area > scaled_max_area) continue;
 
         std::vector<Point2D>& boundary = clusters[root];
-        if (boundary.size() < 10) continue; // Noise filter
+        if (boundary.size() < 10) continue;
 
-        // Bounding Box Reject
+        // Bounding box check
         float min_x = 1e9f, max_x = -1e9f, min_y = 1e9f, max_y = -1e9f;
         for (const auto& p : boundary) {
-            if (p.x < min_x) min_x = p.x;
-            if (p.x > max_x) max_x = p.x;
-            if (p.y < min_y) min_y = p.y;
-            if (p.y > max_y) max_y = p.y;
+            min_x = std::min(min_x, p.x);
+            max_x = std::max(max_x, p.x);
+            min_y = std::min(min_y, p.y);
+            max_y = std::max(max_y, p.y);
         }
-        
         if ((max_x - min_x) < 15 || (max_y - min_y) < 15) continue;
-        
+
         std::vector<Point2D> hull = convex_hull(boundary);
         if (hull.size() < 4) continue;
 
-        // Pass full area (scaled back up) to scoring
         Quad quad = fit_quad_to_hull(hull, (float)area * decimation * decimation);
         if (quad.is_valid()) {
             quads.push_back(quad);
@@ -608,27 +604,22 @@ int main(int argc, char** argv) {
         std::cout << "Image dimensions: " << input.width() << "x" << input.height() 
                   << "x" << input.channels() << std::endl;
         
-        // Convert to grayscale
-        stage_start = Clock::now();
-        Buffer<float> gray = convert_to_grayscale(input);
-        stage_end = Clock::now();
-        timings.emplace_back("convert_to_grayscale", to_ms(stage_end - stage_start));
-        
         // =================================================================
-        // Stage 1: GPU - Adaptive Threshold (binary image)
+        // Stage 1: GPU - Grayscale + Adaptive Threshold (binary image)
+        // Grayscale conversion is now fused into the Halide pipeline
         // =================================================================
-        Buffer<uint8_t> binary(gray.width(), gray.height());
+        Buffer<uint8_t> binary(input.width(), input.height());
         
         stage_start = Clock::now();
-        int result = atag_edge_detect(gray, binary);
+        int result = atag_edge_detect(input, binary);
         stage_end = Clock::now();
-        timings.emplace_back("atag_edge_detect (GPU)", to_ms(stage_end - stage_start));
+        timings.emplace_back("grayscale+threshold (GPU)", to_ms(stage_end - stage_start));
         
         if (result != 0) {
             throw std::runtime_error("Halide pipeline failed: " + std::to_string(result));
         }
         
-        std::cout << "Stage 'threshold (GPU)' completed in "
+        std::cout << "Stage 'grayscale+threshold (GPU)' completed in "
                   << timings.back().second << " ms" << std::endl;
         
         // Copy to host
@@ -697,7 +688,6 @@ int main(int argc, char** argv) {
         std::cout << "Saved: quads_output.png" << std::endl;
         
         // Cleanup
-        gray.device_free();
         binary.device_free();
 
         const auto program_end = Clock::now();
