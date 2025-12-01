@@ -47,8 +47,8 @@ struct Quad {
         float min_side = *std::min_element(side_lengths, side_lengths + 4);
         float max_side = *std::max_element(side_lengths, side_lengths + 4);
         
-        if (min_side < 15.0f) return false;
-        if (max_side / min_side > 4.0f) return false;
+        if (min_side < 6.0f) return false;
+        if (max_side / min_side > 7.0f) return false;
         
         // Check convexity
         for (int i = 0; i < 4; i++) {
@@ -662,11 +662,11 @@ int main(int argc, char** argv) {
         // =================================================================
         // Min/max area based on expected tag sizes (adaptive to image size)
         int img_area = binary.width() * binary.height();
-        int min_area = img_area / 2000;   // Tags should be at least 0.05% of image
-        int max_area = img_area / 4;      // Tags should be at most 25% of image
+        int min_area = img_area / 60000;   // Tags should be at least 0.05% of image
+        int max_area = img_area / 8;      // Tags should be at most 25% of image
         
         stage_start = Clock::now();
-        std::vector<Quad> quads = find_quads_fast(binary, min_area, max_area, 2);
+        std::vector<Quad> quads = find_quads_fast(binary, min_area, max_area, 1);
         stage_end = Clock::now();
         timings.emplace_back("quad_detect (CPU)", to_ms(stage_end - stage_start));
         
